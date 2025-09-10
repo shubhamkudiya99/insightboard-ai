@@ -10,7 +10,7 @@ export default function App() {
   const [transcript, setTranscript] = useState('');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(false);
-  const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+  const API = 'https://insightboard-ai-z436.onrender.com';
 
   useEffect(()=>{ fetchTasks(); }, []);
 
