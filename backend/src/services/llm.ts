@@ -6,6 +6,22 @@ dotenv.config();
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 
+// function to clean up Gemini response
+const cleanGeminiResponse = (response: string): string => {
+  // Remove markdown code blocks
+  let cleaned = response.replace(/```(json)?\n?|```/g, '');
+  // Remove any leading/trailing whitespace
+  cleaned = cleaned.trim();
+  // Find the first [ and last ] to extract just the JSON array
+  const start = cleaned.indexOf('[');
+  const end = cleaned.lastIndexOf(']') + 1;
+  if (start >= 0 && end > 0) {
+    cleaned = cleaned.slice(start, end);
+  }
+  return cleaned;
+};
+
+
 export async function extractActionItems(transcript: string) {
   if (!GEMINI_API_KEY) {
     // Fallback: simple heuristic if no API key is set
@@ -29,10 +45,18 @@ export async function extractActionItems(transcript: string) {
     });
 
     const prompt = `Extract up to 8 concise action items from the meeting transcript.
-Return only a JSON array, each item an object with "text" and optional "priority": "High"|"Medium"|"Low".
+                    Return only a JSON array, each item an object with "text" and optional "priority": "High"|"Medium"|"Low".
 
-Transcript:
-${transcript}`;
+                    Transcript:
+                    ${transcript}
+
+                    Give me the result as a valid JSON array only. Do not include any markdown, code block, or extra formatting.
+                    Example output:
+                    [
+                      { "text": "Send the project proposal to the client", "priority": "High" }
+                    ]
+
+                    `;
 
     const response = await llm.call([
       new SystemMessage(
@@ -43,12 +67,11 @@ ${transcript}`;
 
     const content = response.content?.toString() || "";
 
-    // Try parsing JSON response
-    const jsonStart = content.indexOf("[");
-    const jsonStr = jsonStart >= 0 ? content.slice(jsonStart) : content;
-
+    // Clean and parse the response
+    const cleanedResponse = cleanGeminiResponse(content);
+    
     try {
-      const arr = JSON.parse(jsonStr);
+      const arr = JSON.parse(cleanedResponse);
       return arr.map((a: any) => ({
         text: String(a.text || a),
         priority: a.priority || "Medium",
